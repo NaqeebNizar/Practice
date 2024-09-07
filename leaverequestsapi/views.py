@@ -18,7 +18,7 @@ class LineManagerAPI(APIView):
         
         # Optionally process the data here
         data = send_data_to_frontend()
-        return Response({"message": "Leave request submitted and email sent successfully.",
+        return Response({"message": "Data sent to frontend successfully.",
                              "data" : data,
                             }, status=status.HTTP_200_OK)
 
@@ -45,7 +45,7 @@ class LeaveRequestAPI(APIView):
             print(sender_password)
         
             hr_email = "de.naqeeb@brbgroup.pk"
-            line_manager_email = "de.yousha@brbgroup.pk"
+            line_manager_email = "naqeebnizarali@gmail.com"
 
             recipients = [hr_email, line_manager_email]
 
