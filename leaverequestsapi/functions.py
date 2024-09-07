@@ -77,7 +77,7 @@ def send_email(subject, body, recipients, sender_email, sender_password):
 
 
 
-def send_data_to_frontend(department_name):
+def send_data_to_frontend():
     try:
         # Establish connection to the PostgreSQL database
         conn = psycopg2.connect(
@@ -89,21 +89,20 @@ def send_data_to_frontend(department_name):
         )
         cur = conn.cursor()
 
-        # Execute a query to retrieve pending leave requests for the specified department
+        # Query to retrieve leave requests
         query = """
-        SELECT lr.id, e.name, e.email, lr.leave_date, lr.leave_reason, lr.status, lr.email_body
-        FROM leave_requests lr
-        JOIN employees e ON lr.emp_id = e.emp_id
-        JOIN departments d ON e.department = d.department_name
-        WHERE d.department_name = %s AND lr.status = 'Pending'
+        SELECT emp_id, leave_date, leave_reason, department, status, email_body 
+        FROM leave_requests;
         """
-        cur.execute(query, (department_name,))
         
+        # Execute the query
+        cur.execute(query)
+
         # Fetch all results from the executed query
         rows = cur.fetchall()
 
         # Convert rows to a list of dictionaries
-        columns = ['id', 'name', 'email', 'leave_date', 'leave_reason', 'status', 'email_body']
+        columns = ['emp_id', 'leave_date', 'leave_reason', 'department', 'status', 'email_body']
         data = [dict(zip(columns, row)) for row in rows]
 
         # Close cursor and connection
@@ -115,6 +114,61 @@ def send_data_to_frontend(department_name):
     except Exception as e:
         return False, str(e)
     
+
+
+
+
+
+def send_filter_data_to_frontend(pin):
+    try:
+        # Establish connection to the PostgreSQL database
+        conn = psycopg2.connect(
+            host=os.getenv('DB_HOST'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            dbname=os.getenv('DB_NAME'),
+            port=os.getenv('DB_PORT')
+        )
+        cur = conn.cursor()
+
+        Authorized = False
+
+        # Define the query to find the department by pin
+        query_department = "SELECT * FROM departments WHERE password = %s"
+        cur.execute(query_department, (pin,))
+        department = cur.fetchone()
+
+        if department:
+            department_name = department[0]  # Assuming department name is the second column
+            
+        # get the data from leave_requests table of specific department where status is pending
+        # Define the query to find pending leave requests for the department
+            query_leave_requests = """
+                SELECT * FROM leave_requests
+                WHERE department = %s AND status = 'Pending'
+            """
+            cur.execute(query_leave_requests, (department_name,))
+            leave_requests = cur.fetchall()
+
+            Authorized = True
+
+            return Authorized, department_name, leave_requests
+            
+        else:
+            # Close the cursor and connection
+            cur.close()
+            conn.close()
+            return Authorized, "No department found with the provided pin"
+
+    except Exception as e:
+        return False, str(e)
+    
+    
+
+
+
+
+
 
 
 
