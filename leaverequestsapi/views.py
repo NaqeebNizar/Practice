@@ -9,7 +9,7 @@ from rest_framework import status
 
 
 
-# getting all the data
+# getting all the data from leave_requests table
 class GetLeaveRequestData(APIView):
     def post(self, request):
         data = send_data_to_frontend()
@@ -18,7 +18,9 @@ class GetLeaveRequestData(APIView):
 
 
 
-# for handling pin authentication
+# for handling pin authentication and will return the data of the employees from
+# department and leave_requests table where department = pin(password) and where
+# status = Pending 
 class GetFilteredData(APIView):
     #this get method will be from line manager
     def post(self,request):
