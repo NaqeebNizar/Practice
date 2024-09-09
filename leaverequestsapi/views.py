@@ -47,57 +47,51 @@ class GetPin(APIView):
 class UpdateLeaveRequestData(APIView):
     def put(self,request):
         # get the emp_id and updated status from the line manager
-        emp_id = request.data.get('emp_id')
+        id = request.data.get('id')
+        emp_id = request.data.get('userId')
         status = request.data.get('status')
 
+        print(f"{id} {emp_id} {status}")
+
         updated_status = update_leave_request_status(emp_id, status)
-        pass
-
-
-
-
-
+        return Response(updated_status)
+        
 
 
 
 # getting data from user(frontend) and storing it into database
 class LeaveRequestAPI(APIView):
     def post(self, request):
-        serializer = LeaveRequestSerializer(data=request.data)
-        if serializer.is_valid():
-            emp_id = serializer.validated_data.get('emp_id')
-            emp_name = serializer.validated_data.get('emp_name')
-            leave_date = serializer.validated_data.get('leave_date')
-            leave_reason = serializer.validated_data.get('leave_reason')
-            sender_email = serializer.validated_data.get('sender_email')
-            sender_password = serializer.validated_data.get('sender_password')
-            body = serializer.validated_data.get('email_body')
-            subject = serializer.validated_data.get('email_subject')
-            department = serializer.validated_data.get('department')
+        emp_id = request.data.get('emp_id')
+        emp_name = request.data.get('emp_name')
+        leave_date = request.data.get('leave_date')
+        leave_reason = request.data.get('leave_reason')
+        sender_email = request.data.get('sender_email')
+        sender_password = request.data.get('sender_password')
+        body = request.data.get('email_body')
+        subject = request.data.get('email_subject')
+        department = request.data.get('department')
 
-            # print(sender_email)
-            # print(sender_password)
+        # print(sender_email)
+        # print(sender_password)
         
-            hr_email = "de.naqeeb@brbgroup.pk"
-            line_manager_email = "de.naqeeb@brbgroup.pk"
+        hr_email = "de.naqeeb@brbgroup.pk"
+        line_manager_email = "de.naqeeb@brbgroup.pk"
 
-            recipients = [hr_email, line_manager_email]
+        recipients = [hr_email, line_manager_email]
 
-            if not all([emp_id, emp_name, leave_date, sender_email, sender_password, body, department]):
-                return Response({"error": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
-            success, error_message = send_email(subject, body, recipients, str(sender_email), str(sender_password))
-            if not success:
-                return Response({"send_email error": error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not all([emp_id, emp_name, leave_date, sender_email, sender_password, body, department]):
+            return Response({"error": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+        success, error_message = send_email(subject, body, recipients, str(sender_email), str(sender_password))
+        if not success:
+            return Response({"send_email error": error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            success, error_message = add_leave_request(emp_id, leave_date, leave_reason, body, department)
+        success, error_message = add_leave_request(emp_id, leave_date, leave_reason, body, department)
             
-            if not success: 
-                return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+        if not success: 
+            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({"success_message": "Leave request submitted and email sent successfully."}, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        return Response({"success_message": "Leave request submitted and email sent successfully."}, status=status.HTTP_200_OK)
 
 
 

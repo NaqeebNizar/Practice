@@ -44,18 +44,21 @@ def add_leave_request(emp_id, leave_date, leave_reason, body, department):
 
             # Insert the leave request into the 'leave_requests' table (assuming table structure)
             insert_query = """
-            INSERT INTO leave_requests (emp_id, leave_date, leave_reason, email_body, department)
-            VALUES (%s, %s, %s, %s, %s);
+            INSERT INTO leave_requests (emp_id, leave_date, leave_reason, email_body, department, status)
+            VALUES (%s, %s, %s, %s, %s, %s);
             """
-
-            cur.execute(insert_query, (emp_id, leave_date, leave_reason, body, department))
+            print("query started")
+            cur.execute(insert_query, (emp_id, leave_date, leave_reason, body, department, 'Pending'))
             # Commit the transaction
             conn.commit()
 
+            print("query executed")
 
             # Close cursor and connection
             cur.close()
             conn.close()
+
+            print("pass")
             return True, "Leave request added successfully."
         else:
             return False, "cannot connect to database"
@@ -83,9 +86,9 @@ def send_email(subject, body, recipients, sender_email, sender_password):
         server.login(sender_email, sender_password)
         server.sendmail(sender_email, recipients, message.as_string())
         server.quit()
-        return "Email sent successfully."
+        return True, "Email sent successfully."
     except Exception as e:
-        return f"Failed to send email: {str(e)}"
+        return False, f"Failed to send email: {str(e)}"
 
 
 
@@ -101,7 +104,7 @@ def send_data_to_frontend():
             SELECT emp_id, leave_date, leave_reason, department, status, email_body 
             FROM leave_requests;
             """
-            
+
             # Execute the query
             cur.execute(query)
 
@@ -212,43 +215,38 @@ def check_pin_validation(pin):
 
 
 
-def update_leave_request_status(status):
-    pass
+def update_leave_request_status(employee_id, leave_status):
     try:
         # Establish connection to the PostgreSQL database
-        conn = psycopg2.connect(
-            host=os.getenv('DB_HOST'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            dbname=os.getenv('DB_NAME'),
-            port=os.getenv('DB_PORT')
-        )
-        cur = conn.cursor()
+        conn = connect()
 
-        # Execute a query to retrieve all leave requests
-        query = "SELECT emp_id, leave_date, leave_reason, department FROM leave_requests;"
-        cur.execute(query)
-        
-        # Fetch all results from the executed query
-        rows = cur.fetchall()
+        if conn:
+            cur = conn.cursor()
 
-        # Convert rows to a list of dictionaries
-        columns = ['emp_id', 'leave_date', 'leave_reason', 'department']
-        data = [dict(zip(columns, row)) for row in rows]
+            # Execute a query to retrieve all the data matching with id
+            query = """
+            SELECT * FROM leave_requests WHERE emp_id = %s;
+            """
+            
+            cur.execute(query, (employee_id,))
+            
+            # Fetch all the matching rows
+            leave_requests = cur.fetchall()
 
-        # Close cursor and connection
-        cur.close()
-        conn.close()
+            if leave_requests:
+                # Convert rows to a list of dictionaries
+                columns = ['id', 'emp_id', 'leave_date', 'leave_reason', 'created_at', 'department', 'status', 'email_body']
+                data = [dict(zip(columns, row)) for row in leave_requests]
 
-        # Convert list of dictionaries to JSON
-        json_data = json.dumps(data, default=str)
+                # Close cursor and connection
+                cur.close()
+                conn.close()
 
-        data = json.loads(json_data)
-
-        # Convert the Python object back to a formatted JSON string
-        formatted_json_string = json.dumps(data, indent=4)
-
-        return True, formatted_json_string
+                return True, data
+            else:
+                return "No leave requests found with that employee_ID"
+        else:
+            return "cannot connect to database"
 
     except Exception as e:
         return False, str(e)
