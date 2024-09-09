@@ -8,8 +8,23 @@ import os
 from dotenv import load_dotenv
 import json
 
-
 load_dotenv()
+
+# connecting to database
+def connect():
+    try:
+        # Establish connection to the PostgreSQL database
+        conn = psycopg2.connect(
+            host=os.getenv('DB_HOST'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            dbname=os.getenv('DB_NAME'),
+            port=os.getenv('DB_PORT')
+        )
+        return conn
+
+    except Exception as e:
+        return False, str(e)
 
 
 def get_smtp_settings():
@@ -22,31 +37,28 @@ def get_smtp_settings():
 def add_leave_request(emp_id, leave_date, leave_reason, body, department):
     try:
         # Establish connection to the PostgreSQL database
-        conn = psycopg2.connect(
-            host=os.getenv('DB_HOST'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            dbname=os.getenv('DB_NAME'),
-            port=os.getenv('DB_PORT')
-        )
-        cur = conn.cursor()
+        conn = connect()
 
-        # Insert the leave request into the 'leave_requests' table (assuming table structure)
-        insert_query = """
-        INSERT INTO leave_requests (emp_id, leave_date, leave_reason, email_body, department)
-        VALUES (%s, %s, %s, %s, %s);
-        """
+        if conn:
+            cur = conn.cursor()
 
-        cur.execute(insert_query, (emp_id, leave_date, leave_reason, body, department))
-        # Commit the transaction
-        conn.commit()
+            # Insert the leave request into the 'leave_requests' table (assuming table structure)
+            insert_query = """
+            INSERT INTO leave_requests (emp_id, leave_date, leave_reason, email_body, department)
+            VALUES (%s, %s, %s, %s, %s);
+            """
+
+            cur.execute(insert_query, (emp_id, leave_date, leave_reason, body, department))
+            # Commit the transaction
+            conn.commit()
 
 
-        # Close cursor and connection
-        cur.close()
-        conn.close()
-
-        return True, "Leave request added successfully."
+            # Close cursor and connection
+            cur.close()
+            conn.close()
+            return True, "Leave request added successfully."
+        else:
+            return False, "cannot connect to database"
 
     except Exception as e:
         return False, str(e)
@@ -80,36 +92,31 @@ def send_email(subject, body, recipients, sender_email, sender_password):
 def send_data_to_frontend():
     try:
         # Establish connection to the PostgreSQL database
-        conn = psycopg2.connect(
-            host=os.getenv('DB_HOST'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            dbname=os.getenv('DB_NAME'),
-            port=os.getenv('DB_PORT')
-        )
+        conn = connect()
         cur = conn.cursor()
 
-        # Query to retrieve leave requests
-        query = """
-        SELECT emp_id, leave_date, leave_reason, department, status, email_body 
-        FROM leave_requests;
-        """
-        
-        # Execute the query
-        cur.execute(query)
+        if conn:
+            # Query to retrieve leave requests
+            query = """
+            SELECT emp_id, leave_date, leave_reason, department, status, email_body 
+            FROM leave_requests;
+            """
+            
+            # Execute the query
+            cur.execute(query)
 
-        # Fetch all results from the executed query
-        rows = cur.fetchall()
+            # Fetch all results from the executed query
+            rows = cur.fetchall()
 
-        # Convert rows to a list of dictionaries
-        columns = ['emp_id', 'leave_date', 'leave_reason', 'department', 'status', 'email_body']
-        data = [dict(zip(columns, row)) for row in rows]
+            # Convert rows to a list of dictionaries
+            columns = ['emp_id', 'leave_date', 'leave_reason', 'department', 'status', 'email_body']
+            data = [dict(zip(columns, row)) for row in rows]
 
-        # Close cursor and connection
-        cur.close()
-        conn.close()
+            # Close cursor and connection
+            cur.close()
+            conn.close()
 
-        return data
+            return data
 
     except Exception as e:
         return False, str(e)
@@ -118,6 +125,60 @@ def send_data_to_frontend():
 
 
 def send_filter_data_to_frontend(pin):
+    try:
+        # Establish connection to the PostgreSQL database
+        conn = connect()
+
+        if conn:
+            cur = conn.cursor()
+
+            # Define the query to find the department by pin
+            query_department = "SELECT * FROM departments WHERE password = %s"
+            cur.execute(query_department, (pin,))
+            department = cur.fetchone()
+
+            if department:
+                department_name = department[0]  # Assuming department name is the second column
+                
+                # get the data from leave_requests table of specific department where status is pending
+                # Define the query to find pending leave requests for the department
+                query_leave_requests = """
+                    SELECT * FROM leave_requests
+                    WHERE department = %s AND status = 'Pending'
+                """
+                cur.execute(query_leave_requests, (department_name,))
+                leave_requests = cur.fetchall()
+                
+
+                if leave_requests:
+                    # Fetch the column names from the cursor
+                    columns = [desc[0] for desc in cur.description]
+                    
+                    # Convert each row into a dictionary
+                    leave_requests_dict = [
+                        dict(zip(columns, row)) for row in leave_requests
+                    ]
+
+                    return leave_requests_dict
+                else:
+                    return "No Pending leave requests found with that department"
+                
+            else:
+                # Close the cursor and connection
+                cur.close()
+                conn.close()
+                return "No department found with the provided pin"
+
+        else:
+            return "cannot connect to database"
+    except Exception as e:
+        return str(e)
+    
+    
+
+
+
+def check_pin_validation(pin):
     try:
         # Establish connection to the PostgreSQL database
         conn = psycopg2.connect(
@@ -129,42 +190,22 @@ def send_filter_data_to_frontend(pin):
         )
         cur = conn.cursor()
 
-
         # Define the query to find the department by pin
         query_department = "SELECT * FROM departments WHERE password = %s"
         cur.execute(query_department, (pin,))
         department = cur.fetchone()
 
         if department:
-            department_name = department[0]  # Assuming department name is the second column
-            
-            # get the data from leave_requests table of specific department where status is pending
-            # Define the query to find pending leave requests for the department
-            query_leave_requests = """
-                SELECT * FROM leave_requests
-                WHERE department = %s AND status = 'Pending'
-            """
-            cur.execute(query_leave_requests, (department_name,))
-            leave_requests = cur.fetchall()
-
-            if leave_requests:
-                return leave_requests
-            else:
-                return "No Pending leave requests found with that department"
+            return True
             
         else:
             # Close the cursor and connection
             cur.close()
             conn.close()
-            return "No department found with the provided pin"
+            return False, "No department found with the provided pin"
 
     except Exception as e:
         return str(e)
-    
-    
-
-
-
 
 
 
@@ -173,42 +214,42 @@ def send_filter_data_to_frontend(pin):
 
 def update_leave_request_status(status):
     pass
-    # try:
-    #     # Establish connection to the PostgreSQL database
-    #     conn = psycopg2.connect(
-    #         host=os.getenv('DB_HOST'),
-    #         user=os.getenv('DB_USER'),
-    #         password=os.getenv('DB_PASSWORD'),
-    #         dbname=os.getenv('DB_NAME'),
-    #         port=os.getenv('DB_PORT')
-    #     )
-    #     cur = conn.cursor()
+    try:
+        # Establish connection to the PostgreSQL database
+        conn = psycopg2.connect(
+            host=os.getenv('DB_HOST'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            dbname=os.getenv('DB_NAME'),
+            port=os.getenv('DB_PORT')
+        )
+        cur = conn.cursor()
 
-    #     # Execute a query to retrieve all leave requests
-    #     query = "SELECT emp_id, leave_date, leave_reason, department FROM leave_requests;"
-    #     cur.execute(query)
+        # Execute a query to retrieve all leave requests
+        query = "SELECT emp_id, leave_date, leave_reason, department FROM leave_requests;"
+        cur.execute(query)
         
-    #     # Fetch all results from the executed query
-    #     rows = cur.fetchall()
+        # Fetch all results from the executed query
+        rows = cur.fetchall()
 
-    #     # Convert rows to a list of dictionaries
-    #     columns = ['emp_id', 'leave_date', 'leave_reason', 'department']
-    #     data = [dict(zip(columns, row)) for row in rows]
+        # Convert rows to a list of dictionaries
+        columns = ['emp_id', 'leave_date', 'leave_reason', 'department']
+        data = [dict(zip(columns, row)) for row in rows]
 
-    #     # Close cursor and connection
-    #     cur.close()
-    #     conn.close()
+        # Close cursor and connection
+        cur.close()
+        conn.close()
 
-    #     # Convert list of dictionaries to JSON
-    #     json_data = json.dumps(data, default=str)
+        # Convert list of dictionaries to JSON
+        json_data = json.dumps(data, default=str)
 
-    #     data = json.loads(json_data)
+        data = json.loads(json_data)
 
-    #     # Convert the Python object back to a formatted JSON string
-    #     formatted_json_string = json.dumps(data, indent=4)
+        # Convert the Python object back to a formatted JSON string
+        formatted_json_string = json.dumps(data, indent=4)
 
-    #     return True, formatted_json_string
+        return True, formatted_json_string
 
-    # except Exception as e:
-    #     return False, str(e)
+    except Exception as e:
+        return False, str(e)
 

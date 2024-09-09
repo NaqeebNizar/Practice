@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from .serializers import LeaveRequestSerializer
-from .functions import send_email, add_leave_request, send_data_to_frontend, send_filter_data_to_frontend, update_leave_request_status
+from .functions import send_email, add_leave_request, send_data_to_frontend, send_filter_data_to_frontend, update_leave_request_status, check_pin_validation
 # from django.views.decorators.csrf import csrf_exempt
 from rest_framework.response import Response
 from rest_framework import status
@@ -32,6 +32,14 @@ class GetFilteredData(APIView):
         data = send_filter_data_to_frontend(pin)
         return Response(data, status=status.HTTP_200_OK)
 
+
+
+class GetPin(APIView):
+    def post(self, request):
+        # get the pin from frontend and then match it to the department
+        pin = request.data.get('pin')
+        message = check_pin_validation(pin)
+        return Response(message)
 
 
 
