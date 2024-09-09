@@ -71,9 +71,9 @@ def send_email(subject, body, recipients, sender_email, sender_password):
         server.login(sender_email, sender_password)
         server.sendmail(sender_email, recipients, message.as_string())
         server.quit()
-        return True, "Email sent successfully."
+        return "Email sent successfully."
     except Exception as e:
-        return False, f"Failed to send email: {str(e)}"
+        return f"Failed to send email: {str(e)}"
 
 
 
@@ -117,8 +117,6 @@ def send_data_to_frontend():
 
 
 
-
-
 def send_filter_data_to_frontend(pin):
     try:
         # Establish connection to the PostgreSQL database
@@ -131,7 +129,6 @@ def send_filter_data_to_frontend(pin):
         )
         cur = conn.cursor()
 
-        Authorized = False
 
         # Define the query to find the department by pin
         query_department = "SELECT * FROM departments WHERE password = %s"
@@ -141,8 +138,8 @@ def send_filter_data_to_frontend(pin):
         if department:
             department_name = department[0]  # Assuming department name is the second column
             
-        # get the data from leave_requests table of specific department where status is pending
-        # Define the query to find pending leave requests for the department
+            # get the data from leave_requests table of specific department where status is pending
+            # Define the query to find pending leave requests for the department
             query_leave_requests = """
                 SELECT * FROM leave_requests
                 WHERE department = %s AND status = 'Pending'
@@ -150,18 +147,19 @@ def send_filter_data_to_frontend(pin):
             cur.execute(query_leave_requests, (department_name,))
             leave_requests = cur.fetchall()
 
-            Authorized = True
-
-            return Authorized, department_name, leave_requests
+            if leave_requests:
+                return leave_requests
+            else:
+                return "No Pending leave requests found with that department"
             
         else:
             # Close the cursor and connection
             cur.close()
             conn.close()
-            return Authorized, "No department found with the provided pin"
+            return "No department found with the provided pin"
 
     except Exception as e:
-        return False, str(e)
+        return str(e)
     
     
 
@@ -173,8 +171,8 @@ def send_filter_data_to_frontend(pin):
 
 
 
-def update_employee_status(emp_id, leave_request_status):
-    return emp_id,leave_request_status
+def update_leave_request_status(status):
+    pass
     # try:
     #     # Establish connection to the PostgreSQL database
     #     conn = psycopg2.connect(
