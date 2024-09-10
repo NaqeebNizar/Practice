@@ -124,7 +124,7 @@ class LeaveRequestAPI(APIView):
         emp_name = request.data.get('emp_name')
         leave_start_date = request.data.get('leave_start_date') # new field
         leave_end_date = request.data.get('leave_end_date') # new field
-        # leave_duration = request.data.get('leave_duration') # new field
+        leave_duration = request.data.get('leave_duration') # new field
         leave_reason = request.data.get('leave_reason')
         sender_email = request.data.get('sender_email')
         sender_password = request.data.get('sender_password')

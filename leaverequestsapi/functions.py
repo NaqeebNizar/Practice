@@ -101,7 +101,7 @@ def send_email(subject, body, recipients, sender_email, sender_password):
         server.quit()
         return True, "Email sent successfully."
     except Exception as e:
-        return False, f"Failed to send email: {str(e)}"
+        return False, f"Failed to send email check if email and password is correct: {str(e)}"
 
 
 def send_updated_email(email_subject, approved_email_body, recipients, line_manager_email):
@@ -137,10 +137,11 @@ def send_data_to_frontend():
         cur = conn.cursor()
 
         if conn:
-            # Query to retrieve leave requests
+            # Query to retrieve leave requests and employee names
             query = """
-            SELECT emp_id, leave_date, leave_reason, department, status, email_body 
-            FROM leave_requests;
+            SELECT lr.emp_id, e.name AS emp_name, lr.leave_date, lr.leave_reason, lr.department, lr.status, lr.email_body 
+            FROM leave_requests lr
+            JOIN employees e ON lr.emp_id = e.emp_id;
             """
 
             # Execute the query
@@ -150,7 +151,7 @@ def send_data_to_frontend():
             rows = cur.fetchall()
 
             # Convert rows to a list of dictionaries
-            columns = ['emp_id', 'leave_date', 'leave_reason', 'department', 'status', 'email_body']
+            columns = ['emp_id', 'emp_name', 'leave_date', 'leave_reason', 'department', 'status', 'email_body']
             data = [dict(zip(columns, row)) for row in rows]
 
             # Close cursor and connection
@@ -161,6 +162,7 @@ def send_data_to_frontend():
 
     except Exception as e:
         return False, str(e)
+
     
 
 
@@ -184,8 +186,10 @@ def send_filter_data_to_frontend(pin):
                 # get the data from leave_requests table of specific department where status is pending
                 # Define the query to find pending leave requests for the department
                 query_leave_requests = """
-                    SELECT * FROM leave_requests
-                    WHERE department = %s AND status = 'Pending'
+                    SELECT lr.emp_id, e.name AS emp_name, lr.leave_date, lr.leave_reason, lr.department, lr.status, lr.email_body
+                    FROM leave_requests lr
+                    JOIN employees e ON lr.emp_id = e.emp_id
+                    WHERE lr.department = %s AND lr.status = 'Pending'
                 """
                 cur.execute(query_leave_requests, (department_name,))
                 leave_requests = cur.fetchall()
@@ -342,7 +346,7 @@ def update_leave_request_status(leave_request_id, employee_id, leave_status):
 
             # Query to get the current status of the leave request
             select_status_query = """
-            SELECT status, department 
+            SELECT status 
             FROM leave_requests 
             WHERE id = %s AND emp_id = %s;
             """
@@ -350,7 +354,7 @@ def update_leave_request_status(leave_request_id, employee_id, leave_status):
             result = cur.fetchone()
 
             if result:
-                current_status, department = result
+                current_status = result[0]
 
                 # Check if the current status is the same as the new status
                 if current_status == leave_status:
