@@ -1,11 +1,10 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
-from .serializers import LeaveRequestSerializer
-from .functions import send_email, add_leave_request, get_employee_details, send_data_to_frontend, send_filter_data_to_frontend, update_leave_request_status, check_pin_validation, get_line_manager_email, send_updated_email, get_line_manager_email_and_password
+# from .serializers import LeaveRequestSerializer
+from .functions import send_email, add_leave_request, calculate_leave_tracking, send_data_to_frontend, get_employee_details, send_filter_data_to_frontend, get_employee_email, update_leave_request_status, employee_send_email, check_pin_validation, get_line_manager_email
 # from django.views.decorators.csrf import csrf_exempt
 from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
-from rest_framework import status
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR
 
 
 # for HR getting all the data to frontend from leave_requests table
@@ -13,7 +12,46 @@ class GetLeaveRequestData(APIView):
     def post(self, request):
         data = send_data_to_frontend()
         return Response(data,status=HTTP_200_OK)
+    
 
+
+# HR will send an email to the employee
+class NotifyEmployee(APIView):
+    def post(self, request):
+        emp_id = request.data.get('emp_id')
+        deparment = request.data.get('department')
+        email_body = request.data.get('email_body')
+        email_subject = request.data.get('email_subject')
+        leave_duration = request.data.get("leave_duration")
+        leave_type = request.data.get('leave_type')
+        
+        
+        # HR will send an email to the employee(original email) with their dummy email
+        HR_email = "de.naqeeb@brbgroup.pk" # dummy HR email
+        employee_email = get_employee_email(emp_id)
+        print(employee_email)
+
+        line_manager_email = get_line_manager_email(deparment)
+        if isinstance(line_manager_email, tuple):
+            line_manager_email = line_manager_email[0]
+        print(line_manager_email)
+
+        recipients = [HR_email,line_manager_email]
+
+        # Call the calculation function
+        data = calculate_leave_tracking(emp_id, leave_duration, leave_type)
+        
+
+        success, error_message = send_email(email_subject, email_body, recipients, "NoReply", HR_email, "DeNaqeeb@321")
+        if not success:
+            return Response({"send_email error": error_message}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+        print(success)
+        return Response(data)
+    
+
+        
+
+        
 
 
 
@@ -29,6 +67,7 @@ class GetFilteredData(APIView):
         # get the filtered data of the employees based on specific
         # department and status = Pending
         data = send_filter_data_to_frontend(pin)
+        print(data)
         return Response(data, status=HTTP_200_OK)
 
 
@@ -49,6 +88,7 @@ class UpdateLeaveRequestData(APIView):
         leave_request_id = request.data.get('id')
         emp_id = request.data.get('userId')
         status = request.data.get('status')
+        # department = request.data.get('department')
 
         if status == "Approved":
             approved_email_body = request.data.get('email_body')
@@ -66,32 +106,33 @@ class UpdateLeaveRequestData(APIView):
 
         # Update the leave request status
         result = update_leave_request_status(leave_request_id, emp_id, status)
-        return Response(result)
+        print(status)
 
-        # if leave_status == 'Approved':
-        #     recipients = ['de.naqeeb@brbgroup.pk'] # get the hr email
-
-            # line manager will send the email to HR
-            # so we need to find the line manager of that department first
-            # Get the line manager email and password
-            # line_manager_email, line_manager_password, error_message = get_line_manager_email_and_password(department)
+        recipients_HR = "de.rabia@brbgroup.pk" # HR email
             
-  
-            
-            # if line_manager_password and line_manager_password:
-            #     print(f"{line_manager_email} {line_manager_password}")
-            # return Response({"error" : error_message}, status=HTTP_400_BAD_REQUEST)
-            #     email_success, email_error = send_updated_email(email_subject, approved_email_body, recipients, str(line_manager_email))
-            #     if email_success:
-            #         return Response(email_success)
-            # return Response(email_error)
-        # return Response({"message": f"{error_message} Leave request status updated successfully."}, status=HTTP_200_OK)
-        # else:
-        #     return Response({"error": message}, status=HTTP_400_BAD_REQUEST)
         
 
+        # get the line manager email
+        line_manager_email = "de.naqeeb@brbgroup.pk" # line manager dummy email
 
+        if status == "Approved":
+            # line manager will send the email to HR with their dummy email
+            # emp_name and sender_email is passed in f string in send_email function
+            success, error_message = send_email(email_subject, approved_email_body, recipients_HR, "NoReply", line_manager_email, "DeNaqeeb@321")
+            if not success:
+                return Response({"send_email error": error_message}, status=HTTP_500_INTERNAL_SERVER_ERROR)            
+            print(success)
+        elif status == "Declined":
+            # line manager will send email to employee with their dummy email
+            # get employees email
+            employee_email = get_employee_email(emp_id)
+            print(employee_email)
 
+            success, error_message = send_email(email_subject, declined_email_body, employee_email, "NoReply", line_manager_email, "DeNaqeeb@321")
+            if not success:
+                return Response({"send_email error": error_message}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+            print(success)
+        return Response(result)
 
 # for autofill
 class AutoFillData(APIView):
@@ -109,12 +150,10 @@ class AutoFillData(APIView):
                 return Response(employee,status=HTTP_200_OK)
             else:
                 # If employee not found, require these fields in the request
-                return Response({"error": "Employee not found in the database. Please provide all details."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Employee not found in the database. Please provide all details."}, status=HTTP_400_BAD_REQUEST)
         else:
             # If emp_id is not provided, return an error
-            return Response({"error": "Employee ID is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-
+            return Response({"error": "Employee ID is required"}, status=HTTP_400_BAD_REQUEST)
 
 
 # getting data from user(frontend) and storing it into database
@@ -133,35 +172,30 @@ class LeaveRequestAPI(APIView):
         department = request.data.get('department')
 
         
-        hr_email = "de.naqeeb@brbgroup.pk" # currently hardcoded
+        hr_email = "de.rabia@brbgroup.pk" # currently hardcoded will be the original email
+        # line_manager_email = "de.naqeeb@brbgroup.pk"
+
 
         # get the line manager email for a specific department for departments table
         # get the department from user and then match 
-        line_manager_email = get_line_manager_email(department)
+        line_manager_email = get_line_manager_email(department) # will be the original email
+        if isinstance(line_manager_email, tuple):
+            line_manager_email = line_manager_email[0]
         print(line_manager_email)
         
-
         recipients = [hr_email,line_manager_email]
 
         if not all([emp_id, emp_name, leave_start_date, leave_end_date, leave_reason, sender_email, sender_password, body, subject, department]):
-            return Response({"error": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
-        success, error_message = send_email(subject, body, recipients, str(sender_email), str(sender_password))
+            return Response({"error": "All fields are required"}, status=HTTP_400_BAD_REQUEST)
+        success, error_message = employee_send_email(subject, body, recipients, emp_name, sender_email, sender_password)
         if not success:
-            return Response({"send_email error": error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"send_email error": error_message}, status=HTTP_500_INTERNAL_SERVER_ERROR)
 
-        success, error_message = add_leave_request(emp_id, leave_start_date, leave_end_date, leave_reason, department)
+        success, error_message = add_leave_request(emp_id, leave_start_date, leave_end_date, leave_duration, leave_reason, department)
             
         if not success: 
-            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": error_message}, status=HTTP_400_BAD_REQUEST)
 
-        return Response({"success_message": "Leave request submitted and email sent successfully."}, status=status.HTTP_200_OK)
+        return Response({"success_message": "Leave request submitted and email sent successfully."}, status=HTTP_200_OK)
 
-
-
-
-
-# class Home(APIView):
-#     def get(self, request):
-#         print("Home view accessed")  # For debugging
-#         return Response({'message': "success"}, status=status.HTTP_200_OK)
 
