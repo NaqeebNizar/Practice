@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 import json
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR
 from rest_framework.response import Response
-from . import models
 
 load_dotenv()
 
@@ -83,6 +82,7 @@ def add_leave_request(emp_id, leave_start_date, leave_end_date, leave_duration, 
 
 
 
+
 def get_employee_details(emp_id):
 
     try:
@@ -120,32 +120,42 @@ def get_employee_details(emp_id):
 
 def send_data_to_frontend():
     try:
-        # Querying the leave_requests model and related employees
-        leave_requests_data = leave_requests.objects.select_related('emp_id').all().order_by(
-            models.Case(
-                models.When(status='Approved', then=1),
-                models.When(status='Pending', then=2),
-                models.When(status='Declined', then=3),
-                default=4
-            )
-        )
+        print("In sebd_data function")
+        # Establish connection to the PostgreSQL database
+        conn = connect()
+        cur = conn.cursor()
 
-        # Serializing the query result into a list of dictionaries
-        data = []
-        for request in leave_requests_data:
-            data.append({
-                'id': request.id,
-                'emp_id': request.emp_id.emp_id,
-                'emp_name': request.emp_id.name,
-                'leave_date': request.leave_date,
-                'leave_reason': request.leave_reason,
-                'department': request.department,
-                'status': request.status,
-                'email_body': request.email_body,
-                'leave_duration': request.leave_duration
-            })
-        
-        return data
+        if conn:
+            # Query to retrieve leave requests and employee names
+            print("Connection established")
+            query = """
+            SELECT lr.id, lr.emp_id, e.name AS emp_name, lr.leave_date, lr.leave_reason, lr.department, lr.status, lr.email_body, lr.leave_duration
+            FROM leave_requests lr
+            JOIN employees e ON lr.emp_id = e.emp_id
+            ORDER BY 
+                CASE 
+                    WHEN lr.status = 'Approved' THEN 1
+                    WHEN lr.status = 'Pending' THEN 2
+                    WHEN lr.status = 'Declined' THEN 3
+                    ELSE 4
+                END;
+            """
+
+            # Execute the query
+            cur.execute(query)
+            print("Executed")
+            # Fetch all results from the executed query
+            rows = cur.fetchall()
+
+            # Convert rows to a list of dictionaries
+            columns = ['id', 'emp_id', 'emp_name', 'leave_date', 'leave_reason', 'department', 'status', 'email_body', 'leave_duration']
+            data = [dict(zip(columns, row)) for row in rows]
+            print(data)
+            # Close cursor and connection
+            cur.close()
+            conn.close()
+
+            return data
 
     except Exception as e:
         return False, str(e)
@@ -338,49 +348,6 @@ def get_line_manager_email(department):
 
     except Exception as e:
         return None, str(e)
-    
-
-
-
-def get_line_manager_name(department):
-    try:
-        # Establish connection to the PostgreSQL database
-        conn = psycopg2.connect(
-            host=os.getenv('DB_HOST'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            dbname=os.getenv('DB_NAME'),
-            port=os.getenv('DB_PORT')
-        )
-        cur = conn.cursor()
-
-        # Query to retrieve the line manager's email and name for the specified department
-        query = """
-        SELECT manager_name
-        FROM departments 
-        WHERE department_name = %s;
-        """
-        
-        # Execute the query
-        cur.execute(query, (department,))
-
-        # Fetch the result
-        result = cur.fetchone()
-        
-        # Close cursor and connection
-        cur.close()
-        conn.close()
-
-        if result:
-            # Return both the manager's email and name
-            manager_name = result
-            return manager_name
-        else:
-            return None, None  # Return None if no match is found
-
-    except Exception as e:
-        return None, str(e)
-
 
 
 
@@ -583,4 +550,3 @@ def calculate_leave_tracking(emp_id, leave_duration, leave_type):
 
     except Exception as e:
         return None, str(e)
-

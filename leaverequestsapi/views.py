@@ -132,7 +132,6 @@ class UpdateLeaveRequestData(APIView):
             # get employees email
             employee_email = get_employee_email(emp_id)
             print(employee_email)
-
             success, error_message = send_email(email_subject, declined_email_body, employee_email, line_manager_name, line_manager_email, "DeNaqeeb@321")
             if not success:
                 return Response({"send_email error": error_message}, status=HTTP_500_INTERNAL_SERVER_ERROR)
