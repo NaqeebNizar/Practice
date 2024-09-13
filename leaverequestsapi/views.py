@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 # from .serializers import LeaveRequestSerializer
-from .functions import send_email, add_leave_request, calculate_leave_tracking, send_data_to_frontend, get_employee_details, send_filter_data_to_frontend, get_employee_email, update_leave_request_status, employee_send_email, check_pin_validation, get_line_manager_email
+from .functions import send_email, add_leave_request, get_line_manager_name,calculate_leave_tracking, send_data_to_frontend, get_employee_details, send_filter_data_to_frontend, get_employee_email, update_leave_request_status, employee_send_email, check_pin_validation, get_line_manager_email
 # from django.views.decorators.csrf import csrf_exempt
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR
@@ -29,6 +29,7 @@ class NotifyEmployee(APIView):
         # HR will send an email to the employee(original email) with their dummy email
         HR_email = "de.naqeeb@brbgroup.pk" # dummy HR email
         employee_email = get_employee_email(emp_id)
+        
         print(employee_email)
 
         line_manager_email = get_line_manager_email(deparment)
@@ -36,13 +37,13 @@ class NotifyEmployee(APIView):
             line_manager_email = line_manager_email[0]
         print(line_manager_email)
 
-        recipients = [HR_email,line_manager_email]
+        recipients = [employee_email,line_manager_email]
 
         # Call the calculation function
         data = calculate_leave_tracking(emp_id, leave_duration, leave_type)
         
 
-        success, error_message = send_email(email_subject, email_body, recipients, "NoReply", HR_email, "DeNaqeeb@321")
+        success, error_message = send_email(email_subject, email_body, recipients, "HR", HR_email, "DeNaqeeb@321")
         if not success:
             return Response({"send_email error": error_message}, status=HTTP_500_INTERNAL_SERVER_ERROR)
         print(success)
@@ -88,7 +89,7 @@ class UpdateLeaveRequestData(APIView):
         leave_request_id = request.data.get('id')
         emp_id = request.data.get('userId')
         status = request.data.get('status')
-        # department = request.data.get('department')
+        department = request.data.get('department')
 
         if status == "Approved":
             approved_email_body = request.data.get('email_body')
@@ -110,15 +111,19 @@ class UpdateLeaveRequestData(APIView):
 
         recipients_HR = "de.rabia@brbgroup.pk" # HR email
             
-        
-
         # get the line manager email
         line_manager_email = "de.naqeeb@brbgroup.pk" # line manager dummy email
+
+        # get the line manager name
+        line_manager_name = get_line_manager_name(department)
+        if isinstance(line_manager_name, tuple):
+            line_manager_name = line_manager_name[0]
+        print(line_manager_name)
 
         if status == "Approved":
             # line manager will send the email to HR with their dummy email
             # emp_name and sender_email is passed in f string in send_email function
-            success, error_message = send_email(email_subject, approved_email_body, recipients_HR, "NoReply", line_manager_email, "DeNaqeeb@321")
+            success, error_message = send_email(email_subject, approved_email_body, recipients_HR, line_manager_name, line_manager_email, "DeNaqeeb@321")
             if not success:
                 return Response({"send_email error": error_message}, status=HTTP_500_INTERNAL_SERVER_ERROR)            
             print(success)
@@ -128,7 +133,7 @@ class UpdateLeaveRequestData(APIView):
             employee_email = get_employee_email(emp_id)
             print(employee_email)
 
-            success, error_message = send_email(email_subject, declined_email_body, employee_email, "NoReply", line_manager_email, "DeNaqeeb@321")
+            success, error_message = send_email(email_subject, declined_email_body, employee_email, line_manager_name, line_manager_email, "DeNaqeeb@321")
             if not success:
                 return Response({"send_email error": error_message}, status=HTTP_500_INTERNAL_SERVER_ERROR)
             print(success)
