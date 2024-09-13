@@ -551,5 +551,3 @@ def calculate_leave_tracking(emp_id, leave_duration, leave_type):
     except Exception as e:
         return None, str(e)
 
-
-
