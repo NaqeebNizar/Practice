@@ -404,91 +404,54 @@ class EditEmployeeData(APIView):
         }, status=status.HTTP_200_OK)
         
 
+from .serializers import LeaveTrackingSerializer
 
+class GetEmployees(APIView):
+    def post(self, request):
+        emp_id = request.data.get('emp_id')
+        image = request.FILES.get('image')  # Get the uploaded image file
 
+        try:
+            # Retrieve the employee based on ID
+            employee = employees.objects.get(id=emp_id)
 
-
-
-
-
-
-# # get employees details
-# class AddEmployees(APIView):
-#     # def post(self, request):
-#     #     serializer = EmployeeSerializer(data=request.data)
-#     #     if serializer.is_valid():
-#     #         serializer.save()
-#     #         return Response({'message': 'Employee data saved successfully'}, status=HTTP_201_CREATED)
-#     #     return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-    
-
-#     # def post(self, request):
-#     #     serializer = DepartmentSerializer(data=request.data)
-#     #     if serializer.is_valid():
-#     #         serializer.save()
-#     #         return Response({'message': 'Departments data saved successfully'}, status=HTTP_201_CREATED)
-#     #     return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
-
-#     def post(self, request):
-#         serializer = DepartmentSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response({'message': 'leave_requests data saved successfully'}, status=HTTP_201_CREATED)
-#         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-    
-    
-
-
-# from .serializers import LeaveTrackingSerializer
-
-# class GetEmployees(APIView):
-#     def post(self, request):
-#         emp_id = request.data.get('emp_id')
-#         image = request.FILES.get('image')  # Get the uploaded image file
-
-#         try:
-#             # Retrieve the employee based on ID
-#             employee = employees.objects.get(id=emp_id)
-
-#             # Construct the image URL for the frontend
-#             # Update the employee's image if an image is provided
-#             image_url = None
-#             if image:
-#                 image_url = request.build_absolute_uri(employee.image.url)
-#                 employee.image.save(image_url, image)  # Save the image to the employee instance
-#                 employee.save()  # Make sure to save the employee instance after adding the image
+            # Construct the image URL for the frontend
+            # Update the employee's image if an image is provided
+            image_url = None
+            if image:
+                image_url = request.build_absolute_uri(employee.image.url)
+                employee.image.save(image_url, image)  # Save the image to the employee instance
+                employee.save()  # Make sure to save the employee instance after adding the image
             
-#             # Serialize the employee data
-#             serializer2 = EmployeeSerializer(employee)
+            # Serialize the employee data
+            serializer2 = EmployeeSerializer(employee)
 
-#             # Retrieve leave tracking information
-#             data = leave_tracking.objects.get(emp_id=emp_id)
-#             serializer = LeaveTrackingSerializer(data)
-
+            # Retrieve leave tracking information
+            data = leave_tracking.objects.get(emp_id=emp_id)
+            serializer = LeaveTrackingSerializer(data)
             
-#             # Format the response as desired
-#             formatted_data = {
-#                 "annualleave": {
-#                     "total": serializer.data.get('annual_total', 0),
-#                     "consume": serializer.data.get('annual_consumed', 0),
-#                     "remaining": serializer.data.get('annual_remaining', 0),
-#                 },
-#                 "casualleave": {
-#                     "total": serializer.data.get('casual_total', 0),
-#                     "consume": serializer.data.get('casual_consumed', 0),
-#                     "remaining": serializer.data.get('casual_remaining', 0),
-#                 },
-#                 "sickleave": {
-#                     "total": serializer.data.get('sick_total', 0),
-#                     "consume": serializer.data.get('sick_consumed', 0),
-#                     "remaining": serializer.data.get('sick_remaining', 0),
-#                 },
-#             }
+            # Format the response as desired
+            formatted_data = {
+                "annualleave": {
+                    "total": serializer.data.get('annual_total', 0),
+                    "consume": serializer.data.get('annual_consumed', 0),
+                    "remaining": serializer.data.get('annual_remaining', 0),
+                },
+                "casualleave": {
+                    "total": serializer.data.get('casual_total', 0),
+                    "consume": serializer.data.get('casual_consumed', 0),
+                    "remaining": serializer.data.get('casual_remaining', 0),
+                },
+                "sickleave": {
+                    "total": serializer.data.get('sick_total', 0),
+                    "consume": serializer.data.get('sick_consumed', 0),
+                    "remaining": serializer.data.get('sick_remaining', 0),
+                },
+            }
 
-#             return Response({"Employee data": serializer2.data, "Employee leaves": formatted_data})
-#         except employees.DoesNotExist:
-#             return Response({"error": "Employee not found"}, status=HTTP_404_NOT_FOUND)
+            return Response({"Employee data": serializer2.data, "Employee leaves": formatted_data})
+        except employees.DoesNotExist:
+            return Response({"error": "Employee not found"}, status=HTTP_404_NOT_FOUND)
         
 
 
@@ -503,11 +466,6 @@ class EditEmployeeData(APIView):
 #             return JsonResponse({'department': department}, status=200)
 #         except employee.DoesNotExist:
 #             return JsonResponse({'error': 'Employee not found'}, status=404)
-
-
-
-
-
 
 
 
