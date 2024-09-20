@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import LeaveRequestAPI ,GetFilteredData,EditEmployeeData, NotifyEmployee, GetLeaveRequestData, GetPin, UpdateLeaveRequestData, AutoFillData
+from .views import LeaveRequestAPI, WhatsappLoginView, GetFilteredData,EditEmployeeData, NotifyEmployee, GetLeaveRequestData, GetPin, UpdateLeaveRequestData, AutoFillData
 from django.conf.urls.static import static
 from django.conf import settings
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path('emp_id/',AutoFillData.as_view(),name="auto-fill-data"),
     path('notify_employee/',NotifyEmployee.as_view(),name="notify-email"),
     path('employees/<int:emp_id>/', EditEmployeeData.as_view(), name='update-employee'),
+    path('login/',WhatsappLoginView.as_view(),name='login'),
     # path('get_employee_details/',GetEmployees.as_view(),name='get-employees'),
     # path('upload_image/', UploadImage.as_view(), name='upload_image'),
     # path('tier/',ApprovalTierView.as_view(),name='tier'),

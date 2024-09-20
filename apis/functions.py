@@ -1174,3 +1174,381 @@ def get_line_manager_name(department_name):
 
     except Exception as e:
         return None, str(e)
+
+
+
+
+
+
+
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from time import sleep
+import re
+from selenium.webdriver.edge.service import Service as EdgeService
+from selenium.webdriver.edge.options import Options as EdgeOptions
+import time
+import os
+
+
+
+
+def get_edge_options(headless=True):
+    edge_options = EdgeOptions()
+    edge_options.binary_location = '/usr/bin/microsoft-edge'  # Path to the Edge binary
+    edge_options.add_argument(r"user-data-dir=/home/brb/.config/microsoft-edge/Profile\ 2")  # Path to user data
+    edge_options.add_argument("--profile-directory=Profile 2")
+
+    if headless:
+        edge_options.add_argument("--headless=new")
+        edge_options.add_argument("--disable-gpu")
+        edge_options.add_argument("--window-size=1920,1080")
+        edge_options.add_argument("--start-maximized")
+        edge_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36")
+    
+    edge_service = EdgeService(executable_path='/usr/local/bin/msedgedriver')
+    
+    driver = webdriver.Edge(service=edge_service, options=edge_options)
+    return driver
+
+# def get_edge_options(headless=True):
+#     edge_options = Options()
+#     edge_options.binary_location = '/usr/bin/microsoft-edge'  # Path to the Edge binary
+#     edge_options.add_argument(r"user-data-dir=/home/brb/.config/microsoft-edge/Profile 1")  # Path to user data
+#     edge_options.add_argument("--profile-directory=Profile 1")
+
+#     if headless:
+#         print('here')
+#         print('==============================================================')
+
+#         edge_options.add_argument("--headless=new")
+#         edge_options.add_argument("--disable-gpu")
+#         edge_options.add_argument("--window-size=1920,1080")
+#         edge_options.add_argument("--start-maximized")
+#         edge_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36")
+#         edge_service = Service('/usr/local/bin/msedgedriver')
+#         driver = webdriver.Edge(service=edge_service, options=edge_options)
+#         return driver
+
+def check_whatsapp(driver):
+    check = False
+    driver.get("https://web.whatsapp.com")
+    
+    sleep(20)
+    
+    title = driver.title
+    print(f"Page title: {title}")  # Debugging line to check the actual title
+    
+    if re.search(r"\(\d+\) WhatsApp", title):
+        print("Already logged in")
+        check = True
+        return {"status_code": 200, "Check": f"{check}"}
+    elif title == "WhatsApp":
+        print ("Not logged in")
+        check = False
+        return {"status_code": 200, "Check": f"{check}"}
+    else:
+        return {"status_code": 500, "message": "Unexpected title, cannot determine login status"}
+
+def open_whatsapp(driver, phone_no):
+    # Navigate to WhatsApp Web
+    Check = False
+    driver.get("https://web.whatsapp.com")
+    
+    # Wait for the page to load
+    sleep(20)
+
+    # Check if the chat list is present to determine if logged in
+    try: 
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div[aria-label='Chat list']"))
+        )
+        print("Already logged in")
+        Check = True
+        return {"status_code": 200, "message": "WhatsApp Web is already logged in", "Check": Check }
+    
+    except Exception as e:
+        # Element not found, assume not logged in
+        print("No Element found...")
+        print("Not logged in")
+        result = handle_code(driver, phone_no)
+        # sleep(10)  # Allow time for handling
+        return result
+
+
+def handle_code(driver, phone_no):
+    try:
+        # Wait for the page to load and the code element to be present
+        time.sleep(15)  # Adjust based on your network speed and system performance
+        
+        # Click the link to start the process
+        phone_number_link = '/html/body/div[1]/div/div/div[2]/div[3]/div[1]/div/div/div[3]/div/span'
+        link_element = wait_and_find(driver, By.XPATH, 'phone_number_link', phone_number_link, 5)
+        if isinstance(link_element, dict):  # Check if the function returned a status message
+            return link_element
+        link_element.click()
+        
+        # Wait for the new elements to be visible
+        time.sleep(5)
+        
+        # Enter the phone number
+        phone_number = '/html/body/div[1]/div/div/div[2]/div[3]/div[1]/div/div[3]/div[1]/div[2]/div/div/div/form/input'
+        phone_number_input = wait_and_find(driver, By.XPATH, 'phone_number', phone_number, 5)
+        if isinstance(phone_number_input, dict):  # Check if the function returned a status message
+            return phone_number_input
+        phone_number_input.send_keys(phone_no)
+        time.sleep(6)
+        
+        # Click the next button
+        next = '/html/body/div[1]/div/div/div[2]/div[3]/div[1]/div/div[3]/div[2]/button'
+        next_button = wait_and_find(driver, By.XPATH, 'next', next, 5)
+        if isinstance(next_button, dict):  # Check if the function returned a status message
+            return next_button
+        next_button.click()
+        
+        # Wait for the code to be displayed
+        time.sleep(15)  # Adjust based on how long it takes to receive the code
+        
+        # Locate the div element containing the data-link-code attribute
+        code_box = '/html/body/div[1]/div/div/div[2]/div[3]/div[1]/div/div/div[2]/div/div'
+        code_element = wait_and_find(driver, By.XPATH, 'code_box', code_box, 10)
+        if isinstance(code_element, dict):  # Check if the function returned a status message
+            return code_element
+        
+        # Extract the value of the data-link-code attribute
+        code = code_element.get_attribute('data-link-code')
+        
+        if code:
+            # Split the code by commas
+            code_parts = code.split(',')
+            # Format the code into the desired format
+            formatted_code = ' '.join(code_parts[:4]) + ' - ' + ' '.join(code_parts[4:])
+            print(f"Requested code: {formatted_code}")
+            input("Please enter the code in your mobile app and press Enter when done...")
+        else:
+            print("No code found. Please check the XPath or the page structure.")
+            return {"status_code": 500, "message": "No code found"}
+        
+        return {"status_code": 200, "message": "Code displayed and user prompted"}
+
+    except Exception as e:
+        return {"status_code": 500, "message": f"Error handling code: {str(e)}"}
+    
+
+
+
+
+
+# Function to open a channel and send an image with a caption
+def open_channel(driver, channel_name):
+    try:
+        channel_button_xpath = '/html/body/div[1]/div/div/div[2]/header/div/div/div/div/span/div/div[1]/div[3]/div'
+        channel_button = wait_and_find(driver, By.XPATH, 'channel_button_xpath', channel_button_xpath, 20)
+        if isinstance(channel_button, dict):  # Check if the function returned a status message
+            return channel_button
+        
+        channel_button.click()
+
+        test_channel_xpath = f'//span[@title="{channel_name}"]'
+        test_channel = wait_and_find(driver, By.XPATH, 'test_channel_xpath', test_channel_xpath, 20)
+        if isinstance(test_channel, dict):  # Check if the function returned a status message
+            return test_channel
+        
+        test_channel.click()
+        sleep(6)
+        return {"status_code": 200, "message": f"Channel '{channel_name}' opened successfully"}
+    except Exception as e:
+        return {"status_code": 500, "message": f"Error opening channel '{channel_name}'"}
+
+
+
+
+# Function to send an image with a caption to a group
+def send_image_with_caption(driver, image_paths, caption):
+    try:
+        # JavaScript function to set caption and send the image
+        send_image_script = """
+        function setCaption(caption) {
+            const mainEl = document.querySelector('#main');
+            const captionEl = mainEl.querySelector('div[contenteditable="true"]');
+    
+            if (!captionEl) {
+                throw new Error('Unable to find caption input field');
+            }
+    
+            // Split the caption by newlines
+            const lines = caption.split('\\n');
+    
+            // Clear existing content
+            captionEl.innerHTML = '';
+    
+            // Function to insert text and simulate Shift+Enter
+            function insertTextWithShiftEnter(text) {
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.setStart(captionEl, captionEl.childNodes.length);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+        
+                // Insert the text
+                document.execCommand('insertText', false, text);
+            }
+    
+            // Insert each line followed by Shift+Enter
+            for (let i = 0; i < lines.length; i++) {
+                insertTextWithShiftEnter(lines[i]);
+                if (i < lines.length - 1) {
+                    // Insert a newline (Shift+Enter)
+                    const event = new KeyboardEvent('keydown', {
+                        key: 'Enter',
+                        code: 'Enter',
+                        keyCode: 13,
+                        which: 13,
+                        shiftKey: true
+                    });
+                    captionEl.dispatchEvent(event);
+                }
+            }
+    
+            // Trigger a change event to ensure any listeners are updated
+            captionEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Example usage
+        setCaption(arguments[0]);
+        """
+
+        # Execute the JavaScript function with the caption as an argument
+        driver.execute_script(send_image_script, caption)
+        print("Script executed")
+
+        if image_paths is not None:
+            # Wait until the chat input box is visible
+            chat = '//div[@title="Attach"]'
+            chat_box = wait_and_find(driver, By.XPATH, 'chat', chat, 30)
+            if isinstance(chat_box, dict):  # Check if the function returned a status message
+                return chat_box
+            sleep(3)
+            # Click on the attach icon
+            # attach = '//div[@title="Attach"]'
+            # attach_icon = wait_and_find(driver, By.XPATH, 'attach', attach, 2)
+            # if isinstance(attach_icon, dict):  # Check if the function returned a status message
+            #     return attach_icon
+            # attach_icon.click()
+
+            # # Wait for the "Attach" button to load, and click the image attachment option
+            # media_attach = '//input[@accept="image/*,video/mp4,video/3gpp,video/quicktime"]'
+            # image_attach_option = wait_and_find(driver, By.XPATH, 'media_attach', media_attach, 10)
+            # if isinstance(image_attach_option, dict):  # Check if the function returned a status message
+            #     return image_attach_option
+
+            # # Send the file path to the image attach input
+            # image_attach_option.send_keys(image_path)
+
+            # sleep(5)
+
+            # send_button_xpath = "/html/body/div[1]/div/div/div[2]/div[2]/div[2]/span/div/div/div/div[2]/div/div[2]/div[2]/div/div"
+            # send_button = wait_and_find(driver, By.XPATH, 'send_button_xpath', send_button_xpath, 5)
+            # if isinstance(send_button, dict):  # Check if the function returned a status message
+            #     return send_button
+        
+            # send_button.click()
+            # print("Send button with image clicked")
+            # sleep(10)
+
+            driver.save_screenshot("ss2.png")
+            attach = '//div[@title="Attach"]'
+
+            attach_icon = wait_and_find(driver, By.XPATH, 'attach', attach, 2)
+
+            if isinstance(attach_icon, dict):  # Check if the function returned a status message
+
+                return attach_icon
+
+            attach_icon.click()
+            all_images = "\n".join(os.path.abspath(image) for image in image_paths)
+            media_attach = '//input[@accept="image/*,video/mp4,video/3gpp,video/quicktime"]'
+
+            image_attach_option = wait_and_find(driver, By.XPATH, 'media_attach', media_attach, 10)
+
+            if isinstance(image_attach_option, dict):  # Check if the function returned a status message
+
+                return image_attach_option
+
+            image_attach_option.send_keys(all_images)
+
+            time.sleep(4)
+
+            send_button_xpath = "/html/body/div[1]/div/div/div[2]/div[2]/div[2]/span/div/div/div/div[2]/div/div[2]/div[2]/div/div"
+
+            send_button = wait_and_find(driver, By.XPATH, 'send_button_xpath', send_button_xpath, 2)
+
+            if isinstance(send_button, dict):  # Check if the function returned a status message
+
+                return send_button
+            driver.save_screenshot("ss.png")
+
+            send_button.click()
+
+            time.sleep(30)
+        else:
+            send_button_text_xpath = "/html/body/div[1]/div/div/div[2]/div[4]/div/footer/div[1]/div/span[2]/div/div[2]/div[2]/button"
+            send_button_text = wait_and_find(driver, By.XPATH, 'send_button_text_xpath', send_button_text_xpath, 5)
+            if isinstance(send_button_text, dict):  # Check if the function returned a status message
+                return send_button
+        
+            send_button_text.click()
+            print("SEND button clicked!")
+            sleep(10)
+
+        return {"status_code": 200, "message": "Media with caption sent successfully"}
+
+    except Exception as e:
+        return {"status_code": 500, "message": f"Error sending image with caption: {str(e)}"}
+
+
+# Function to select a group by name
+def select_group(driver, group_name):
+    try:
+        search = '//div[@contenteditable="true"][@data-tab="3"]'
+        search_box = wait_and_find(driver, By.XPATH, 'search', search, 20)
+        if isinstance(search_box, dict):  # Check if the function returned a status message
+            return search_box
+        print("Search done")
+        search_box.clear()
+        search_box.send_keys(group_name)
+        
+        group_xpath = f'//span[@title="{group_name}"]'
+        group_element = wait_and_find(driver, By.XPATH, 'group_xpath', group_xpath, 20)
+        if isinstance(group_element, dict):  # Check if the function returned a status message
+            return group_element
+        
+        group_element.click()
+        print("Clicked and group opened")
+
+        return {"status_code": 200, "message": f"Group '{group_name}' selected successfully"}
+    except Exception as e:
+        return {"status_code": 500, "message": f"Error selecting group '{group_name}'"}
+
+
+    
+
+
+
+# Function to wait for an element and find it
+def wait_and_find(driver, by, variable_name, value, timeout=10):
+    try:
+        return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((by, value)))
+        # return element
+    except Exception as e:
+        return {"status_code": 404, "message": f"{variable_name} (Variable) Element not found: {value}"}
+    
+
+
+
+
+

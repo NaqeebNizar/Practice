@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-i-z4^&9pa6sw2odac%v@vgy=ok)qc&yh19wfpapgswp)x425@d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1','192.168.2.116']
+ALLOWED_HOSTS = ['127.0.0.1','192.168.2.116','192.168.0.157']
 
 
 # Application definition
@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'apis',
     'rest_framework',
     'corsheaders',
+    'channels',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -87,10 +89,10 @@ WSGI_APPLICATION = 'djangobackendproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'DemoPostgres',  # Replace with your DB name
-        'USER': 'postgres',
-        'PASSWORD': 'password',
-        'HOST': 'localhost',  # Replace with your host
+        'NAME': 'mydatabase',  # Replace with your DB name
+        'USER': 'test',
+        'PASSWORD': 'Test',
+        'HOST': '192.168.0.157',  # Replace with your host
         'PORT': '5432',  # Default port for PostgreSQL
     }
 }
